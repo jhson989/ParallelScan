@@ -10,7 +10,7 @@
 #define SIZE_T unsigned long long
 
 
-const int LEVEL = 3;
+const int TREE_LEVEL = 3;
 const int NUM_THREADS = 6;
 const SIZE_T N = (((SIZE_T)1)<<31);
 timeval start, end;
@@ -78,7 +78,7 @@ int main(void) {
 
 DTYPE prefix_sum_1_first_path(const std::vector<DTYPE>* in, std::vector<DTYPE>* out, SIZE_T start, SIZE_T end) {
 
-    if (end-start <= (N>>LEVEL)) {
+    if (end-start <= (N>>TREE_LEVEL)) {
         
         ((*out)[start]) = ((*in)[start]);
         for (SIZE_T i=start+1; i<end; i++)
@@ -104,7 +104,7 @@ DTYPE prefix_sum_1_first_path(const std::vector<DTYPE>* in, std::vector<DTYPE>* 
 
 void prefix_sum_1_second_path(const std::vector<DTYPE>* in, std::vector<DTYPE>* out, SIZE_T start, SIZE_T end, DTYPE left) {
 
-    if (end-start <= (N>>LEVEL)) {
+    if (end-start <= (N>>TREE_LEVEL)) {
         
         for (SIZE_T i=start; i<end-1; i++)
             ((*out)[i]) += left;
@@ -128,6 +128,12 @@ void prefix_sum_1_second_path(const std::vector<DTYPE>* in, std::vector<DTYPE>* 
 
 void parallel_prefix_sum_1(const std::vector<DTYPE>* in, std::vector<DTYPE>* out) {
 
+    /*
+     * The parallel algorithm: Two-pass algorithm
+     * - first path: get partial sum
+     * - second path: add all the left partial sums to current value
+     * Work : O(N), Span : O(logN)
+     */
 
     #pragma omp parallel num_threads(NUM_THREADS)
     {
