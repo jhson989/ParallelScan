@@ -19,6 +19,6 @@ Parallel Scan Algorithm Implemented with OpenMP
 
 ### 3. Implementation details
 - Prefix Sum
-    - TODO
-- Prefix Max
-    - TODO
+    - Folder PrefixSum
+- General Scan
+    - Folder Scan

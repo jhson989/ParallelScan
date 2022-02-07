@@ -2,7 +2,7 @@
 set(CMAKE_C_COMPILER gcc)
 set(CMAKE_CXX_COMPILER g++)
 
-set(APP_NAME prefixSum.out)
+set(APP_NAME scan.out)
 set(MAIN_FILE main.cpp)
 set(COMPILE_OPTIONS -fopenmp)
 

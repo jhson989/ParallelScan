@@ -11,3 +11,4 @@ project(
 )
 
 add_subdirectory(PrefixSum)
+add_subdirectory(Scan)
