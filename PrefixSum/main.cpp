@@ -7,17 +7,19 @@
 #include <omp.h>
 
 #define DTYPE int
+#define SIZE_T unsigned long long
 
 
-const int NUM_THREADS = 1;
-const size_t N = 1<<28;
+const int LEVEL = 3;
+const int NUM_THREADS = 6;
+const SIZE_T N = (((SIZE_T)1)<<31);
 timeval start, end;
 
 // Sequential prefix-sum algorithm implementation
 void get_groundtruth(std::vector<DTYPE>& gt, const std::vector<DTYPE>& in);
 
 // Parallel prefix-sum algorithm implementations
-void parallel_prefix_sum_1(const std::vector<DTYPE>& in, std::vector<DTYPE>& out);
+void parallel_prefix_sum_1(const std::vector<DTYPE>* in, std::vector<DTYPE>* out);
 
 
 // Helper functions
@@ -41,7 +43,7 @@ int main(void) {
     srand(time(NULL));
     std::vector<DTYPE> in(N); 
     std::vector<DTYPE> out(N, 0); 
-    std::generate(in.begin(), in.end(), [](){return std::rand()%200-100;});
+    std::generate(in.begin(), in.end(), [](){return std::rand()%20-10;});
     std::vector<DTYPE> gt(N, 0);
 
 
@@ -60,7 +62,7 @@ int main(void) {
      ********************************************/
     std::cout << "\nParallel Prefix Sum Algorithm Start\n";
     gettimeofday(&start, NULL);
-    parallel_prefix_sum_1(in, out);
+    parallel_prefix_sum_1(&in, &out);
     gettimeofday(&end, NULL);
     std::cout << "--- Total elapsed time : " << get_sec() << " s\n\n";
 
@@ -74,58 +76,65 @@ int main(void) {
 
 }
 
-DTYPE prefix_sum_1_first_path(const std::vector<DTYPE>& in, std::vector<DTYPE>& out, size_t start, size_t end) {
+DTYPE prefix_sum_1_first_path(const std::vector<DTYPE>* in, std::vector<DTYPE>* out, SIZE_T start, SIZE_T end) {
 
-    if (end-start <= (N>>4)) {
-        out[start] = in[start];
-        for (size_t i=start+1; i<end; i++)
-            out[i] = out[i-1] + in[i];
-        return out[end-1];
+    if (end-start <= (N>>LEVEL)) {
+        
+        ((*out)[start]) = ((*in)[start]);
+        for (SIZE_T i=start+1; i<end; i++)
+            ((*out)[i]) = ((*out)[i-1]) + ((*in)[i]);
+          
+
+        return ((*out)[end-1]);
     }
 
-    size_t mid = (start+end)/2;
+    SIZE_T mid = (start+end)/2;
     DTYPE left=0, right=0;
 
-    #pragma omp task shared(out, left)
-    left = prefix_sum_1_first_path(in, out, start, mid);
-
+    #pragma omp task shared(left)
+    {
+        left = prefix_sum_1_first_path(in, out, start, mid);
+    }
     right = prefix_sum_1_first_path(in, out, mid, end);
 
     #pragma omp taskwait 
-    out[end-1] = left + right;
-    return out[end-1];
+    ((*out)[end-1]) = left + right;
+    return ((*out)[end-1]);
 }
 
-void prefix_sum_1_second_path(const std::vector<DTYPE>& in, std::vector<DTYPE>& out, size_t start, size_t end, DTYPE left) {
+void prefix_sum_1_second_path(const std::vector<DTYPE>* in, std::vector<DTYPE>* out, SIZE_T start, SIZE_T end, DTYPE left) {
 
-
-    if (end-start <= (N>>4)) {
-        for (size_t i=start; i<end-1; i++)
-            out[i] += left;
-        out[end-1] = out[end-2] + in[end-1];
+    if (end-start <= (N>>LEVEL)) {
+        
+        for (SIZE_T i=start; i<end-1; i++)
+            ((*out)[i]) += left;
+        ((*out)[end-1]) = ((*out)[end-2]) + ((*in)[end-1]);
+        
         return;
     }
 
-    size_t mid = (start+end)/2;
-    DTYPE temp = out[mid-1];
+    SIZE_T mid = (start+end)/2;
+    DTYPE temp = ((*out)[mid-1]);
 
-    #pragma omp task shared(out)
-    prefix_sum_1_second_path(in, out, start, mid, left);
+    #pragma omp task
+    {
+        prefix_sum_1_second_path(in, out, start, mid, left);
+    }
     prefix_sum_1_second_path(in, out, mid, end, left+temp);
 
     #pragma omp taskwait
 
 }
 
-void parallel_prefix_sum_1(const std::vector<DTYPE>& in, std::vector<DTYPE>& out) {
+void parallel_prefix_sum_1(const std::vector<DTYPE>* in, std::vector<DTYPE>* out) {
 
 
     #pragma omp parallel num_threads(NUM_THREADS)
     {
-        #pragma omp single
+        #pragma omp master
         {
-            prefix_sum_1_first_path(in, out, 0, in.size());
-            prefix_sum_1_second_path(in, out, 0, in.size(), 0);
+            prefix_sum_1_first_path(in, out, 0, in->size());
+            prefix_sum_1_second_path(in, out, 0, in->size(), 0);
         }
     }
 }
@@ -139,7 +148,7 @@ void get_groundtruth(std::vector<DTYPE>& gt, const std::vector<DTYPE>& in) {
      * Work : O(N), Span : O(N)
      */
     gt[0] = in[0];
-    for (size_t i=1; i<gt.size(); i++) {
+    for (SIZE_T i=1; i<gt.size(); i++) {
         gt[i] = gt[i-1] + in[i];
     }
     
@@ -159,7 +168,7 @@ void check_result(std::vector<DTYPE>& gt, std::vector<DTYPE>& out) {
 
     std::cout << "Start Checking result...\n";
     bool result = true;
-    for (size_t i=0; i<gt.size(); i++) {
+    for (SIZE_T i=0; i<gt.size(); i++) {
         if (gt[i] != out[i]) {
             result = false;
             std::cout << "--- [[ERR]] Incorrect at out["<<i<<"] with result="<<out[i]<<" but, gt="<<gt[i]<<"\n";
